@@ -1,0 +1,74 @@
+.cameraControls {
+  grid-template-columns: minmax(0, 1fr) 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.controlBtn {
+  min-height: 46px;
+  width: 100%;
+  padding: 0 14px;
+  border: 1.5px solid rgba(44, 28, 21, .62);
+  border-radius: 999px;
+  background: rgba(248, 234, 216, .72);
+  color: var(--ink);
+  box-shadow: 2px 3px 0 rgba(125, 70, 86, .10);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  line-height: 1;
+  white-space: nowrap;
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform .16s ease, background .16s ease, box-shadow .16s ease;
+}
+
+.controlBtn:hover,
+.controlBtn:focus-visible {
+  background: rgba(248, 234, 216, .95);
+  transform: translateY(-1px);
+  box-shadow: 3px 4px 0 rgba(125, 70, 86, .13);
+}
+
+.controlBtn svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+
+@media (max-width: 520px) {
+  .cameraControls {
+    grid-template-columns: minmax(0, 1fr) 86px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .controlBtn {
+    min-height: 44px;
+    padding: 0 10px;
+    font-size: 9px;
+    letter-spacing: .06em;
+  }
+}
+
+@media (max-width: 350px) {
+  .cameraControls {
+    grid-template-columns: minmax(0, 1fr) 76px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .controlBtn {
+    min-height: 42px;
+    padding: 0 8px;
+    font-size: 8px;
+  }
+
+  .controlBtn svg {
+    width: 14px;
+    height: 14px;
+    flex-basis: 14px;
+  }
+}
