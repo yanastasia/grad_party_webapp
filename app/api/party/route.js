@@ -1,11 +1,12 @@
 import { NextResponse, after } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import crypto from 'crypto';
-import { processPartyPhoto } from '../../../lib/photo-processing';
+import { addCaptionToPhoto, processPartyPhoto } from '../../../lib/photo-processing';
 
 const sql = neon(process.env.DATABASE_URL);
 const COOKIE_NAME = 'al_party_session';
 const SESSION_DAYS = 7;
+const CAPTIONED_FOLDER_ID = process.env.GOOGLE_CAPTIONED_FOLDER_ID || '1PeTblY4B_kkxdKXARmbi58tvcA2JuYa2';
 
 export const maxDuration = 60;
 
@@ -122,7 +123,7 @@ async function downloadDriveFile(accessToken, fileId) {
   return Buffer.from(await response.arrayBuffer());
 }
 
-async function uploadProcessedFile({ accessToken, folderId, filename, buffer }) {
+async function uploadJpegToDrive({ accessToken, folderId, filename, buffer }) {
   const boundary = `al_party_${crypto.randomBytes(12).toString('hex')}`;
   const metadata = JSON.stringify({ name: filename, parents: [folderId] });
   const head = Buffer.from(
@@ -143,26 +144,42 @@ async function uploadProcessedFile({ accessToken, folderId, filename, buffer }) 
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || !data.id) {
-    throw new Error(`Processed Drive upload failed (${response.status}): ${data.error?.message || 'unknown error'}`);
+    throw new Error(`Drive upload failed (${response.status}): ${data.error?.message || 'unknown error'}`);
   }
   return data;
 }
 
-async function createProcessedCopy({ driveFileId, processedFolderId, filename, photoId }) {
+async function createDerivedCopies({ driveFileId, processedFolderId, captionedFolderId, filename, photoId, caption }) {
   try {
     if (!processedFolderId) throw new Error('Processed folder is not configured for this guest.');
+
     const accessToken = await googleAccessToken();
     const originalBuffer = await downloadDriveFile(accessToken, driveFileId);
     const processed = await processPartyPhoto(originalBuffer, { seed: photoId });
-    await uploadProcessedFile({
+
+    await uploadJpegToDrive({
       accessToken,
       folderId: processedFolderId,
       filename,
       buffer: processed.buffer,
     });
-    console.log(`Processed ${filename} with ${processed.preset} preset (luminance ${processed.luminance}).`);
+
+    const cleanCaption = String(caption || '').trim();
+    if (cleanCaption && captionedFolderId) {
+      const captionedBuffer = await addCaptionToPhoto(processed.buffer, cleanCaption);
+      if (captionedBuffer) {
+        await uploadJpegToDrive({
+          accessToken,
+          folderId: captionedFolderId,
+          filename,
+          buffer: captionedBuffer,
+        });
+      }
+    }
+
+    console.log(`Processed ${filename} with ${processed.preset} preset (luminance ${processed.luminance}). Captioned copy: ${cleanCaption ? 'yes' : 'no'}.`);
   } catch (processingError) {
-    console.error('Automatic processed-copy generation failed:', processingError);
+    console.error('Automatic derived-copy generation failed:', processingError);
   }
 }
 
@@ -326,7 +343,7 @@ export async function POST(request) {
       if (!photoId || !driveFileId) return NextResponse.json({ error: 'Missing upload result.' }, { status: 400 });
 
       const photoRows = await sql`
-        select id, guest_id, shot_number, processing_status, original_filename
+        select id, guest_id, shot_number, processing_status, original_filename, caption
         from photos where id = ${photoId} and guest_id = ${guest.id} limit 1
       `;
       if (!photoRows[0]) return NextResponse.json({ error: 'Photo record not found.' }, { status: 404 });
@@ -353,11 +370,14 @@ export async function POST(request) {
       if (shouldProcess) {
         const processedFolderId = guest.processed_folder_id;
         const filename = photoRows[0].original_filename;
-        after(() => createProcessedCopy({
+        const caption = photoRows[0].caption;
+        after(() => createDerivedCopies({
           driveFileId,
           processedFolderId,
+          captionedFolderId: CAPTIONED_FOLDER_ID,
           filename,
           photoId,
+          caption,
         }));
       }
 
