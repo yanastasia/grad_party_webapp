@@ -32,6 +32,27 @@ async function api(body) {
   return data;
 }
 
+function cropToThreeByFour(width, height) {
+  const landscape = width >= height;
+  const targetRatio = landscape ? 4 / 3 : 3 / 4;
+  const sourceRatio = width / height;
+
+  let cropWidth = width;
+  let cropHeight = height;
+  let sourceX = 0;
+  let sourceY = 0;
+
+  if (sourceRatio > targetRatio) {
+    cropWidth = Math.round(height * targetRatio);
+    sourceX = Math.round((width - cropWidth) / 2);
+  } else if (sourceRatio < targetRatio) {
+    cropHeight = Math.round(width / targetRatio);
+    sourceY = Math.round((height - cropHeight) / 2);
+  }
+
+  return { landscape, sourceX, sourceY, cropWidth, cropHeight };
+}
+
 export default function PhotosPage() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -128,15 +149,30 @@ export default function PhotosPage() {
     const canvas = canvasRef.current;
     if (!video || !canvas || !video.videoWidth || !video.videoHeight) return;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    const crop = cropToThreeByFour(video.videoWidth, video.videoHeight);
+    canvas.width = crop.cropWidth;
+    canvas.height = crop.cropHeight;
+
     const ctx = canvas.getContext('2d', { alpha: false });
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+
     if (facingMode === 'user') {
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
     }
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    ctx.drawImage(
+      video,
+      crop.sourceX,
+      crop.sourceY,
+      crop.cropWidth,
+      crop.cropHeight,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     stopCamera();
 
