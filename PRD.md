@@ -1,6 +1,6 @@
 # Graduation Party Web App — Current PRD
 
-_Last updated: 3 September 2026_
+_Last updated: 4 September 2026_
 
 ## Goal
 A zero-install, mobile-first web app accessed through one QR code at Anastasia & Leona's graduation party on 5 September 2026.
@@ -20,8 +20,7 @@ The printed QR code points here.
 
 ### Current content
 - `Anastasia & Leona · 05.09.26`
-- `Join the party`
-- `Pick your side quest.`
+- `Pick your side quest.` — primary title, left aligned and positioned lower to balance the page.
 - **Photo Booth**
   - `For the archives. Or the group chat.`
 - **Song Requests**
@@ -34,6 +33,7 @@ The printed QR code points here.
 Do not repeat copy already printed on the physical QR card. The hub should stay sparse and keep only digital-only/witty supporting lines.
 
 Removed from the hub intentionally:
+- `Join the party`
 - `Photos, songs, and good decisions optional.`
 - `Take it. Send it. Keep the night alive.`
 - `Up to 15 photos per guest.`
@@ -57,6 +57,7 @@ No app download, email, social login or password.
 - Guest can log back in using the same registered name.
 - Session is maintained using a secure HTTP-only cookie.
 - Current session lifetime: 7 days.
+- Login no longer shows the redundant `Enter the name you registered with.` helper line.
 
 ---
 
@@ -95,6 +96,7 @@ The guest may retake indefinitely before accepting a photo. Only the photo they 
 - When supported, reads the video track's reported maximum width/height and applies those constraints.
 - Captures the full `videoWidth × videoHeight` frame into canvas.
 - Converts to JPEG using maximum canvas JPEG quality.
+- Back/Party and camera-switch controls use proper SVG icons and matching button styling rather than emoji glyphs.
 
 ### Quality constraint
 Mobile browsers may expose less than the phone's full native still-camera sensor resolution. Therefore the requirement is **highest practical browser capture quality**, not RAW/native camera parity.
@@ -113,8 +115,7 @@ Mobile browsers may expose less than the phone's full native still-camera sensor
 6. Retake may repeat without limit.
 7. Discarded captures are never uploaded and never recorded as consumed shots.
 
-Current helper copy:
-`Retake until it earns a place on the roll. Only the one you keep counts.`
+No explanatory helper sentence is shown under the preview buttons.
 
 ---
 
@@ -145,6 +146,7 @@ Current copy:
 - Neon Postgres for guests, sessions and photo metadata.
 - Google Drive for photo storage.
 - Resumable/chunked Drive upload.
+- Sharp for server-side processed-image generation.
 
 ### Upload flow
 1. Guest keeps a photo and optionally adds a caption.
@@ -155,16 +157,29 @@ Current copy:
 6. Client uploads the original JPEG in **2 MB chunks**.
 7. Google Drive returns the file ID.
 8. Client calls finalize.
-9. Server marks the photo ready and increments `photos_used` exactly once.
-10. Updated remaining-shot count is returned to the guest.
+9. Server marks the original photo ready and increments `photos_used` exactly once.
+10. Server automatically downloads the just-uploaded original, processes a derivative, and uploads that derivative to the guest's processed folder.
+11. Processing failure does **not** invalidate or delete the successfully submitted original.
+12. Updated remaining-shot count is returned to the guest.
+
+### File naming
+Both original and processed copies use the registered guest name plus party-local time only:
+
+`Registered Name_HH-MM-SS.jpg`
+
+Timezone: `Europe/Skopje`.
+
+No date is included in the filename.
 
 ### Drive organization
 Each guest receives:
 - an **originals** folder under the configured originals parent folder;
 - a corresponding **processed** folder under the configured processed-images parent folder.
 
+The processed copy uses the same filename as its corresponding original, but lives in the separate processed folder.
+
 ### Original preservation
-The submitted JPEG is the archival original and must never be destructively overwritten.
+The submitted JPEG is the archival original and is never destructively overwritten.
 
 ---
 
@@ -173,7 +188,7 @@ The submitted JPEG is the archival original and must never be destructively over
 ### Login / register
 - `Disposable camera · 15 shots`
 - `Back for more?` / `Join the roll.`
-- `Pick a name or alias. Mostly for credit. Slightly for accountability.`
+- Registration only: `Pick a name or alias. Mostly for credit. Slightly for accountability.`
 
 ### Camera
 - Remaining-shot counter.
@@ -208,36 +223,58 @@ The submitted JPEG is the archival original and must never be destructively over
 
 ---
 
-## 9. Automatic Photo Effect
+## 9. Automatic Photo Processing
 
-### Desired effect
-A subtle automatic vintage/disposable-camera treatment that matches the party visual system:
-- warm film balance;
-- slightly faded tonal range;
-- softened highlights;
-- restrained saturation;
-- visible but tasteful grain;
+### Purpose
+Create a second, party-ready version of every successfully submitted photo automatically while preserving the untouched original.
+
+The processing is designed specifically for likely nighttime / weak-light party photos, where some ambient lighting is still present.
+
+### Adaptive presets
+The processor first measures average luminance and automatically selects one of three internal treatments:
+- **normal** — light vintage treatment for reasonably exposed images;
+- **low-light** — stronger brightness/shadow recovery with restrained grain;
+- **very-dark** — stronger lift, additional noise cleanup and gentler grain/vignette.
+
+Guests do not choose a filter manually.
+
+### Processing pipeline
+The current server-side Sharp pipeline performs:
+- automatic orientation handling;
+- brightness adjustment based on measured luminance;
+- tonal compression / lifted blacks;
+- mild low-light cleanup for very dark frames;
+- slightly reduced saturation;
+- subtle warm color balance;
+- light sharpening after cleanup;
+- deterministic fine monochrome grain;
 - subtle vignette;
-- slightly less digital sharpness.
+- JPEG export at quality 92 with 4:4:4 chroma subsampling.
 
-### Requirements
+### Design intent
+The target is **nighttime disposable-camera character**, not a heavy Instagram-style filter:
+- faces should remain readable;
+- ambient string lights and warm venue lighting should remain attractive;
+- highlights should not be aggressively blown out;
+- very dark areas should be recovered where practical;
+- existing phone noise should not be mistaken for intentional film grain;
+- the final image should feel warm, slightly faded and tactile.
+
+### Safety / preservation requirements
 - Original remains untouched.
 - Processed image is a separate derivative.
-- Effect is automatic, not manually chosen by guests.
 - No beauty filter or AI face alteration.
-- Treatment must be deterministic/reproducible for fallback batch processing.
+- Grain generation is deterministically seeded per photo so the preset is reproducible.
+- A processing failure is logged but does not fail the original guest submission.
 
 ### Current status
-- Original uploads are implemented.
-- Separate Drive folder structure for processed versions is already provisioned.
-- Automatic derivative generation is **not yet implemented in the finalized upload flow**.
+**Implemented.**
 
-### Fallback
-If live processing is unavailable or fails:
-1. Continue saving originals normally.
-2. Do not fail a guest submission solely because styling failed.
-3. Mark derivative processing pending/failed.
-4. Run the same preset as a post-party batch process.
+On first successful finalization of an original photo, the app now automatically:
+1. downloads that original from Drive;
+2. analyzes luminance;
+3. applies the adaptive Sharp treatment;
+4. uploads a JPEG copy into that guest's processed Drive folder using the same filename.
 
 ---
 
@@ -276,16 +313,17 @@ Keep screens concise. Especially on the hub, avoid repeating copy already visibl
 ## 12. Next Priorities
 
 ### P0 — party critical
-- Test full registration → camera → unlimited retake → caption → Drive upload flow on iPhone Safari.
+- Test full registration → camera → unlimited retake → caption → original Drive upload → processed Drive copy on iPhone Safari.
 - Test the same flow on Android Chrome.
 - Verify returning guest behavior.
 - Verify the 15-shot server-side limit.
 - Test large/high-resolution photos on cellular or weak Wi-Fi.
 - Confirm no shot is consumed on discarded retakes or failed uploads.
+- Compare a few real low-light test photos across the three automatic presets and tune values if needed before the party.
 
 ### P1
-- Implement automatic processed-image generation while preserving originals.
-- Save derivatives into each guest's processed Drive folder.
+- Add a host-only way to retry processing for originals whose derivative generation failed.
+- Optionally store processed Drive file IDs / processing diagnostics in the photo database record.
 
 ### P2
 - Host/admin view for guests, shots used, captions and upload failures.
@@ -310,6 +348,7 @@ A guest can:
 - optionally add a caption;
 - submit it to Google Drive;
 - consume exactly one of their 15 shots only after successful finalization;
+- automatically generate a processed copy in their processed Drive folder;
 - repeat until all 15 submitted photos are used.
 
-The hosts receive each successfully submitted original photo in Google Drive, organized by guest, with the corresponding guest/caption metadata retained in the application database.
+The hosts receive each successfully submitted original photo in Google Drive, organized by guest, plus a corresponding automatically processed copy in the matching guest processed folder. Guest/caption metadata remains in the application database.
