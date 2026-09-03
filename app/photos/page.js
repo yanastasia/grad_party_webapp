@@ -33,7 +33,6 @@ export default function PhotosPage() {
   const [stage, setStage] = useState('camera');
   const [caption, setCaption] = useState('');
   const [sendError, setSendError] = useState('');
-  const [retakeUsed, setRetakeUsed] = useState(false);
 
   useEffect(() => {
     if (!guest || stage !== 'camera' || guest.photosLeft <= 0) return;
@@ -93,7 +92,6 @@ export default function PhotosPage() {
       const data = await api({ action: authMode, username });
       setGuest(data.guest);
       setUsername('');
-      setRetakeUsed(false);
       setStage(data.guest.photosLeft > 0 ? 'camera' : 'exhausted');
     } catch (error) {
       setAuthError(error.message);
@@ -107,7 +105,6 @@ export default function PhotosPage() {
     setAuthMode('login');
     setStage('camera');
     setCaption('');
-    setRetakeUsed(false);
   }
 
   function capturePhoto() {
@@ -138,13 +135,11 @@ export default function PhotosPage() {
   }
 
   function retake() {
-    if (retakeUsed) return;
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl('');
     setCapturedBlob(null);
     setCaption('');
     setSendError('');
-    setRetakeUsed(true);
     setStage('camera');
   }
 
@@ -201,7 +196,6 @@ export default function PhotosPage() {
     setCapturedBlob(null);
     setCaption('');
     setSendError('');
-    setRetakeUsed(false);
     setStage('camera');
   }
 
@@ -335,10 +329,10 @@ export default function PhotosPage() {
             <div className="cameraFrame"><img src={previewUrl} alt="Your captured photo preview" /></div>
           </div>
           <div className="previewActions">
-            <button className="secondaryBtn" type="button" onClick={retake} disabled={retakeUsed}>{retakeUsed ? 'Retake used' : 'Retake once'}</button>
+            <button className="secondaryBtn" type="button" onClick={retake}>Retake</button>
             <button className="primaryBtn" type="button" onClick={() => setStage('caption')}>Keep this one</button>
           </div>
-          <p className="muted small" style={{ textAlign: 'center', margin: '0 0 8px' }}>{retakeUsed ? 'That was your mercy shot. This one stays.' : 'One retake per photo. Mercy is limited.'}</p>
+          <p className="muted small" style={{ textAlign: 'center', margin: '0 0 8px' }}>Retake until it earns a place on the roll. Only the one you keep counts.</p>
         </section>
       </main>
     );
