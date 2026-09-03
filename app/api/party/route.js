@@ -307,14 +307,33 @@ export async function POST(request) {
         `;
       }
 
-      const shotNumber = guest.photos_used + 1;
-      const photoId = crypto.randomUUID();
+      const caption = String(body.caption || '').slice(0, 200) || null;
       const filename = `${guest.username}_${partyTimeStamp()}.jpg`;
+      let photoId = null;
+      let shotNumber = null;
 
-      await sql`
-        insert into photos (id, guest_id, shot_number, caption, original_filename, mime_type, file_size_bytes, processing_status)
-        values (${photoId}, ${guest.id}, ${shotNumber}, ${String(body.caption || '').slice(0, 200) || null}, ${filename}, ${mimeType}, ${fileSize}, 'uploading')
-      `;
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const nextRows = await sql`
+          select coalesce(max(shot_number), 0) + 1 as next_shot_number
+          from photos
+          where guest_id = ${guest.id}
+        `;
+        shotNumber = Number(nextRows[0]?.next_shot_number || 1);
+        photoId = crypto.randomUUID();
+
+        try {
+          await sql`
+            insert into photos (id, guest_id, shot_number, caption, original_filename, mime_type, file_size_bytes, processing_status)
+            values (${photoId}, ${guest.id}, ${shotNumber}, ${caption}, ${filename}, ${mimeType}, ${fileSize}, 'uploading')
+          `;
+          break;
+        } catch (insertError) {
+          if (insertError?.code !== '23505' || attempt === 3) throw insertError;
+          photoId = null;
+        }
+      }
+
+      if (!photoId) throw new Error('Could not reserve a photo slot. Please try again.');
 
       const init = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id,name,size,mimeType', {
         method: 'POST',
