@@ -132,6 +132,22 @@ export default function PhotosPage() {
     setFacingMode((current) => current === 'environment' ? 'user' : 'environment');
   };
 
+  const mirrorBlob = async (blob) => {
+    const bitmap = await createImageBitmap(blob);
+    const canvas = canvasRef.current;
+    if (!canvas) return blob;
+
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext('2d', { alpha: false });
+    context.setTransform(-1, 0, 0, 1, canvas.width, 0);
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    context.setTransform(1, 0, 0, 1, 0, 0);
+
+    return new Promise((resolve) => canvas.toBlob((result) => resolve(result || blob), 'image/jpeg', 1));
+  };
+
   const captureBlob = async () => {
     const track = streamRef.current?.getVideoTracks?.()[0];
 
@@ -139,7 +155,7 @@ export default function PhotosPage() {
       try {
         const imageCapture = new window.ImageCapture(track);
         const blob = await imageCapture.takePhoto();
-        if (blob?.size) return blob;
+        if (blob?.size) return facingMode === 'user' ? await mirrorBlob(blob) : blob;
       } catch {
         // Safari/iOS often does not support ImageCapture; canvas is the fallback below.
       }
@@ -153,7 +169,14 @@ export default function PhotosPage() {
     canvas.height = video.videoHeight;
     const context = canvas.getContext('2d', { alpha: false });
     context.setTransform(1, 0, 0, 1, 0, 0);
+
+    if (facingMode === 'user') {
+      context.translate(canvas.width, 0);
+      context.scale(-1, 1);
+    }
+
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    context.setTransform(1, 0, 0, 1, 0, 0);
 
     return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 1));
   };
@@ -275,11 +298,18 @@ export default function PhotosPage() {
             </div>
             <div className="viewfinder-wrap">
               <div className="viewfinder">
-                <video ref={videoRef} className="camera-video" autoPlay playsInline muted />
+                <video
+                  ref={videoRef}
+                  className="camera-video"
+                  style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
+                  autoPlay
+                  playsInline
+                  muted
+                />
                 {isStartingCamera && <div className="camera-overlay">opening camera…</div>}
                 <span className="viewfinder-corner viewfinder-corner--tl" aria-hidden="true" /><span className="viewfinder-corner viewfinder-corner--tr" aria-hidden="true" /><span className="viewfinder-corner viewfinder-corner--bl" aria-hidden="true" /><span className="viewfinder-corner viewfinder-corner--br" aria-hidden="true" />
               </div>
-              <p className="camera-hint">{facingMode === 'user' ? 'front camera' : 'back camera'} · highest available camera quality</p>
+              <p className="camera-hint">{facingMode === 'user' ? 'front camera · mirrored' : 'back camera'} · highest available camera quality</p>
             </div>
             {cameraError && <div className="error-box"><p>{cameraError}</p><button type="button" className="secondary-button" onClick={() => startCamera(facingMode)}>Try again</button></div>}
             <div className="camera-controls">
