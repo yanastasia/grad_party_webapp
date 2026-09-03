@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import crypto from 'crypto';
+import { processPartyPhoto } from '../../../lib/photo-processing';
 
 const sql = neon(process.env.DATABASE_URL);
 const COOKIE_NAME = 'al_party_session';
@@ -105,6 +106,44 @@ async function ensureDriveFolder({ accessToken, parentId, name }) {
   const createData = await create.json();
   if (!create.ok) throw new Error(`Drive folder creation failed: ${createData.error?.message || create.status}`);
   return createData.id;
+}
+
+async function downloadDriveFile(accessToken, fileId) {
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`, {
+    headers: { authorization: `Bearer ${accessToken}` },
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Drive download failed (${response.status}): ${text.slice(0, 240)}`);
+  }
+  return Buffer.from(await response.arrayBuffer());
+}
+
+async function uploadProcessedFile({ accessToken, folderId, filename, buffer }) {
+  const boundary = `al_party_${crypto.randomBytes(12).toString('hex')}`;
+  const metadata = JSON.stringify({ name: filename, parents: [folderId] });
+  const head = Buffer.from(
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n` +
+    `--${boundary}\r\nContent-Type: image/jpeg\r\n\r\n`
+  );
+  const tail = Buffer.from(`\r\n--${boundary}--`);
+  const body = Buffer.concat([head, buffer, tail]);
+
+  const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,size,mimeType', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': `multipart/related; boundary=${boundary}`,
+      'content-length': String(body.length),
+    },
+    body,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.id) {
+    throw new Error(`Processed Drive upload failed (${response.status}): ${data.error?.message || 'unknown error'}`);
+  }
+  return data;
 }
 
 function guestPayload(guest) {
@@ -267,7 +306,7 @@ export async function POST(request) {
       if (!photoId || !driveFileId) return NextResponse.json({ error: 'Missing upload result.' }, { status: 400 });
 
       const photoRows = await sql`
-        select id, guest_id, shot_number, processing_status
+        select id, guest_id, shot_number, processing_status, original_filename
         from photos where id = ${photoId} and guest_id = ${guest.id} limit 1
       `;
       if (!photoRows[0]) return NextResponse.json({ error: 'Photo record not found.' }, { status: 404 });
@@ -283,6 +322,22 @@ export async function POST(request) {
           set photos_used = least(photo_limit, photos_used + 1)
           where id = ${guest.id}
         `;
+
+        try {
+          if (!guest.processed_folder_id) throw new Error('Processed folder is not configured for this guest.');
+          const accessToken = await googleAccessToken();
+          const originalBuffer = await downloadDriveFile(accessToken, driveFileId);
+          const processed = await processPartyPhoto(originalBuffer, { seed: photoId });
+          await uploadProcessedFile({
+            accessToken,
+            folderId: guest.processed_folder_id,
+            filename: photoRows[0].original_filename,
+            buffer: processed.buffer,
+          });
+          console.log(`Processed ${photoRows[0].original_filename} with ${processed.preset} preset (luminance ${processed.luminance}).`);
+        } catch (processingError) {
+          console.error('Automatic processed-copy generation failed:', processingError);
+        }
       }
 
       const updated = await sql`
