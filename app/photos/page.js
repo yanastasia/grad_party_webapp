@@ -67,6 +67,7 @@ export default function PhotosPage() {
   const [cameraError, setCameraError] = useState('');
   const [capturedBlob, setCapturedBlob] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  const [previewOrientation, setPreviewOrientation] = useState('portrait');
   const [stage, setStage] = useState('camera');
   const [caption, setCaption] = useState('');
   const [sendError, setSendError] = useState('');
@@ -152,6 +153,7 @@ export default function PhotosPage() {
     const crop = cropToThreeByFour(video.videoWidth, video.videoHeight);
     canvas.width = crop.cropWidth;
     canvas.height = crop.cropHeight;
+    setPreviewOrientation(crop.landscape ? 'landscape' : 'portrait');
 
     const ctx = canvas.getContext('2d', { alpha: false });
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -367,6 +369,8 @@ export default function PhotosPage() {
   }
 
   if (stage === 'preview') {
+    const previewAspectRatio = previewOrientation === 'landscape' ? '4 / 3' : '3 / 4';
+
     return (
       <main className="page partyPage">
         <section className="cameraShell">
@@ -374,7 +378,13 @@ export default function PhotosPage() {
             <div className="counter"><strong>{guest.photosLeft} / {guest.photoLimit}</strong><span>shots left</span></div>
           </div>
           <div className="cameraViewport">
-            <div className="cameraFrame"><img src={previewUrl} alt="Your captured photo preview" /></div>
+            <div className="cameraFrame" style={{ aspectRatio: previewAspectRatio, width: '100%', overflow: 'hidden' }}>
+              <img
+                src={previewUrl}
+                alt="Your captured photo preview"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              />
+            </div>
           </div>
           <div className="previewActions">
             <button className="secondaryBtn" type="button" onClick={retake}>Retake</button>
