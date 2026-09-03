@@ -1,5 +1,13 @@
 import Link from 'next/link';
 
+function ArrowUpRightIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 17L17 7M9 7h8v8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export default function HomePage() {
   return (
     <main className="page partyPage homePage">
@@ -22,7 +30,7 @@ export default function HomePage() {
             <span className="activityTitle">Photo Booth</span>
             <span className="activityNote">For the archives. Or the group chat.</span>
           </span>
-          <span className="activityArrow" aria-hidden="true">↗</span>
+          <span className="activityArrow" aria-hidden="true"><ArrowUpRightIcon /></span>
         </Link>
 
         <a className="activity activityMusic" href="https://dekk.fm/mix?room=a-l-xi" target="_blank" rel="noreferrer">
@@ -31,7 +39,7 @@ export default function HomePage() {
             <span className="activityTitle">Song Requests</span>
             <span className="activityNote">The dance floor is a democracy. Mostly.</span>
           </span>
-          <span className="activityArrow" aria-hidden="true">↗</span>
+          <span className="activityArrow" aria-hidden="true"><ArrowUpRightIcon /></span>
         </a>
       </section>
     </main>
