@@ -1,4 +1,5 @@
 import './globals.css';
+import './camera-controls.css';
 
 export const metadata = {
   title: 'A&L Graduation Party',
