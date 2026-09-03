@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import crypto from 'crypto';
 import { processPartyPhoto } from '../../../lib/photo-processing';
@@ -6,6 +6,8 @@ import { processPartyPhoto } from '../../../lib/photo-processing';
 const sql = neon(process.env.DATABASE_URL);
 const COOKIE_NAME = 'al_party_session';
 const SESSION_DAYS = 7;
+
+export const maxDuration = 60;
 
 function normalizeUsername(value = '') {
   return value.trim().replace(/\s+/g, ' ').toLowerCase();
@@ -144,6 +146,24 @@ async function uploadProcessedFile({ accessToken, folderId, filename, buffer }) 
     throw new Error(`Processed Drive upload failed (${response.status}): ${data.error?.message || 'unknown error'}`);
   }
   return data;
+}
+
+async function createProcessedCopy({ driveFileId, processedFolderId, filename, photoId }) {
+  try {
+    if (!processedFolderId) throw new Error('Processed folder is not configured for this guest.');
+    const accessToken = await googleAccessToken();
+    const originalBuffer = await downloadDriveFile(accessToken, driveFileId);
+    const processed = await processPartyPhoto(originalBuffer, { seed: photoId });
+    await uploadProcessedFile({
+      accessToken,
+      folderId: processedFolderId,
+      filename,
+      buffer: processed.buffer,
+    });
+    console.log(`Processed ${filename} with ${processed.preset} preset (luminance ${processed.luminance}).`);
+  } catch (processingError) {
+    console.error('Automatic processed-copy generation failed:', processingError);
+  }
 }
 
 function guestPayload(guest) {
@@ -311,6 +331,7 @@ export async function POST(request) {
       `;
       if (!photoRows[0]) return NextResponse.json({ error: 'Photo record not found.' }, { status: 404 });
 
+      let shouldProcess = false;
       if (photoRows[0].processing_status !== 'ready') {
         await sql`
           update photos
@@ -322,27 +343,24 @@ export async function POST(request) {
           set photos_used = least(photo_limit, photos_used + 1)
           where id = ${guest.id}
         `;
-
-        try {
-          if (!guest.processed_folder_id) throw new Error('Processed folder is not configured for this guest.');
-          const accessToken = await googleAccessToken();
-          const originalBuffer = await downloadDriveFile(accessToken, driveFileId);
-          const processed = await processPartyPhoto(originalBuffer, { seed: photoId });
-          await uploadProcessedFile({
-            accessToken,
-            folderId: guest.processed_folder_id,
-            filename: photoRows[0].original_filename,
-            buffer: processed.buffer,
-          });
-          console.log(`Processed ${photoRows[0].original_filename} with ${processed.preset} preset (luminance ${processed.luminance}).`);
-        } catch (processingError) {
-          console.error('Automatic processed-copy generation failed:', processingError);
-        }
+        shouldProcess = true;
       }
 
       const updated = await sql`
         select id, username, photo_limit, photos_used from guests where id = ${guest.id} limit 1
       `;
+
+      if (shouldProcess) {
+        const processedFolderId = guest.processed_folder_id;
+        const filename = photoRows[0].original_filename;
+        after(() => createProcessedCopy({
+          driveFileId,
+          processedFolderId,
+          filename,
+          photoId,
+        }));
+      }
+
       return NextResponse.json({ guest: guestPayload(updated[0]) });
     }
 
