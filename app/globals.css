@@ -1,0 +1,413 @@
+:root {
+  --paper: #f3e4cf;
+  --paper-deep: #ead3b6;
+  --ink: #2d1b14;
+  --rose: #9b5d69;
+  --rose-deep: #7f4753;
+  --lavender: #a497ab;
+  --peach: #d78e72;
+  --olive: #6a644a;
+  --line: rgba(45, 27, 20, 0.22);
+}
+
+* { box-sizing: border-box; }
+html { background: var(--paper); }
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(215,142,114,.13), transparent 26%),
+    radial-gradient(circle at 88% 18%, rgba(164,151,171,.16), transparent 24%),
+    var(--paper);
+  color: var(--ink);
+  font-family: Georgia, 'Times New Roman', serif;
+}
+button, input, textarea { font: inherit; }
+a { color: inherit; }
+
+.page {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 28px 22px 38px;
+  position: relative;
+  overflow: hidden;
+}
+
+.page::before,
+.page::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  opacity: .55;
+}
+.page::before {
+  width: 120px;
+  height: 120px;
+  border: 2px solid var(--rose);
+  border-radius: 55% 45% 60% 40%;
+  top: -74px;
+  left: -50px;
+  transform: rotate(18deg);
+}
+.page::after {
+  width: 110px;
+  height: 58px;
+  border-bottom: 3px solid var(--lavender);
+  border-radius: 50%;
+  right: -34px;
+  bottom: 18px;
+  transform: rotate(-10deg);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: .18em;
+  font-size: 11px;
+}
+
+.display {
+  margin: 0;
+  font-size: clamp(42px, 10vw, 76px);
+  line-height: .92;
+  font-weight: 600;
+  letter-spacing: -.04em;
+}
+
+.script {
+  font-family: 'Brush Script MT', 'Segoe Script', cursive;
+  color: var(--rose);
+  font-size: clamp(28px, 7vw, 48px);
+  line-height: 1;
+  transform: rotate(-2deg);
+  display: inline-block;
+}
+
+.muted { color: rgba(45,27,20,.68); }
+.small { font-size: 13px; }
+
+.homeHero {
+  padding: 52px 0 34px;
+}
+.homeHero .gratitude {
+  margin: 20px 0 0;
+  max-width: 430px;
+  font-size: 18px;
+  line-height: 1.5;
+}
+.homeHero .gratitude em {
+  display: block;
+  margin-top: 4px;
+  color: var(--rose-deep);
+  font-style: italic;
+}
+
+.activityList {
+  border-top: 1px solid var(--line);
+  margin-top: 22px;
+}
+.activity {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 22px 0;
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+}
+.activityIcon {
+  width: 42px;
+  height: 42px;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+}
+.activityTitle {
+  display: block;
+  font-size: 22px;
+  line-height: 1.1;
+}
+.activityCopy {
+  margin-top: 5px;
+  display: block;
+  font-size: 13px;
+  color: rgba(45,27,20,.65);
+}
+.activityArrow { font-size: 22px; }
+
+.partyDate {
+  margin-top: 26px;
+  font-size: 12px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.centerStage {
+  min-height: calc(100vh - 66px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.authWrap {
+  width: min(100%, 430px);
+  margin: 0 auto;
+}
+.authTitle {
+  margin: 8px 0 6px;
+  font-size: clamp(38px, 9vw, 60px);
+  line-height: .95;
+}
+.authForm { margin-top: 28px; }
+.fieldLabel {
+  display: block;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  font-size: 10px;
+}
+.textInput,
+.captionInput {
+  width: 100%;
+  border: 0;
+  border-bottom: 1.5px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  padding: 12px 2px;
+  outline: none;
+  font-size: 18px;
+  border-radius: 0;
+}
+.textInput:focus,
+.captionInput:focus { border-color: var(--rose); }
+.captionInput {
+  min-height: 128px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  padding: 14px;
+  border-radius: 4px;
+  font-size: 16px;
+}
+.primaryBtn,
+.secondaryBtn,
+.textBtn {
+  min-height: 48px;
+  border-radius: 999px;
+  padding: 0 20px;
+  cursor: pointer;
+}
+.primaryBtn {
+  border: 1.5px solid var(--ink);
+  background: var(--rose);
+  color: #fff8ee;
+}
+.secondaryBtn {
+  border: 1.5px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+}
+.textBtn {
+  border: 0;
+  background: transparent;
+  padding-inline: 0;
+  color: var(--rose-deep);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.fullBtn { width: 100%; margin-top: 22px; }
+.authSwitch {
+  margin-top: 16px;
+  font-size: 14px;
+}
+.errorText {
+  margin-top: 14px;
+  color: #8b2f32;
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.cameraShell {
+  width: min(100%, 520px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 66px);
+}
+.cameraTop {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 4px 0 16px;
+  min-height: 58px;
+}
+.counter {
+  text-align: center;
+}
+.counter strong {
+  display: block;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 500;
+}
+.counter span {
+  display: block;
+  margin-top: 5px;
+  font-size: 9px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+.cameraViewport {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+}
+.cameraFrame {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border: 1px solid rgba(45,27,20,.6);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #17120f;
+  position: relative;
+}
+.cameraFrame video,
+.cameraFrame canvas,
+.cameraFrame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cameraControls {
+  display: grid;
+  grid-template-columns: 1fr 96px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 0 max(8px, env(safe-area-inset-bottom));
+}
+.controlBtn {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  min-height: 48px;
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.shutterBtn {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: transparent;
+  padding: 5px;
+  margin: 0 auto;
+  cursor: pointer;
+}
+.shutterBtn::after {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--rose);
+}
+
+.previewActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 18px 0 max(10px, env(safe-area-inset-bottom));
+}
+
+.captionStage,
+.successStage,
+.sendingStage,
+.exhaustedStage {
+  width: min(100%, 460px);
+  margin: 0 auto;
+  min-height: calc(100vh - 66px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.captionStage h1,
+.successStage h1,
+.exhaustedStage h1 {
+  font-size: clamp(40px, 10vw, 64px);
+  line-height: .95;
+  margin: 8px 0 12px;
+}
+.captionActions {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 12px;
+  margin-top: 18px;
+}
+.captionCount {
+  text-align: right;
+  margin-top: 6px;
+  font-size: 11px;
+  letter-spacing: .08em;
+}
+
+.developing {
+  text-align: center;
+  font-family: 'Brush Script MT', 'Segoe Script', cursive;
+  color: var(--rose);
+  font-size: clamp(46px, 14vw, 82px);
+  line-height: 1;
+}
+.developDot {
+  width: 42px;
+  height: 42px;
+  margin: 24px auto 0;
+  border: 1.5px solid var(--ink);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.successMark {
+  font-size: 32px;
+  color: var(--rose);
+}
+.successCounter {
+  margin: 26px 0;
+  font-size: 18px;
+  letter-spacing: .04em;
+}
+.successCounter strong { font-size: 32px; font-weight: 500; }
+.inspiration {
+  margin-top: 12px;
+  font-family: 'Brush Script MT', 'Segoe Script', cursive;
+  color: var(--rose);
+  font-size: 30px;
+}
+
+@media (max-width: 520px) {
+  .page { padding: 20px 16px 24px; }
+  .homeHero { padding-top: 36px; }
+  .activity { grid-template-columns: 40px 1fr auto; }
+  .cameraShell { min-height: calc(100vh - 44px); }
+  .cameraViewport { align-items: stretch; }
+  .cameraFrame { aspect-ratio: auto; min-height: 0; height: min(64vh, 620px); }
+  .cameraControls { grid-template-columns: 1fr 86px 1fr; }
+  .shutterBtn { width: 72px; height: 72px; }
+}
+
+@media (max-width: 350px) {
+  .page { padding-inline: 12px; }
+  .cameraControls { gap: 4px; grid-template-columns: 1fr 76px 1fr; }
+  .shutterBtn { width: 66px; height: 66px; }
+  .controlBtn { font-size: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .developDot { animation: none; border-top-color: var(--ink); }
+}
