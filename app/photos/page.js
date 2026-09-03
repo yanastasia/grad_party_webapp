@@ -1,12 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-const DEFAULT_MAX_SHOTS = 15;
+const CHUNK_SIZE = 2 * 1024 * 1024;
 
-function blobFromCanvas(canvas, type = 'image/jpeg', quality = 1) {
-  return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+async function api(body) {
+  const response = await fetch('/api/party', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+  return data;
 }
 
 export default function PhotosPage() {
@@ -15,34 +22,39 @@ export default function PhotosPage() {
   const streamRef = useRef(null);
 
   const [guest, setGuest] = useState(null);
-  const [name, setName] = useState('');
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authMode, setAuthMode] = useState('login');
+  const [username, setUsername] = useState('');
   const [authError, setAuthError] = useState('');
 
   const [facingMode, setFacingMode] = useState('environment');
   const [cameraError, setCameraError] = useState('');
-  const [cameraLoading, setCameraLoading] = useState(false);
-
-  const [stage, setStage] = useState('camera');
-  const [photoBlob, setPhotoBlob] = useState(null);
+  const [capturedBlob, setCapturedBlob] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  const [stage, setStage] = useState('camera');
   const [caption, setCaption] = useState('');
-  const [retakeUsed, setRetakeUsed] = useState(false);
   const [sendError, setSendError] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
 
-  const stopCamera = useCallback(() => {
+  useEffect(() => {
+    if (!guest || stage !== 'camera' || guest.photosLeft <= 0) return;
+    startCamera();
+    return stopCamera;
+  }, [guest, facingMode, stage]);
+
+  useEffect(() => () => {
+    stopCamera();
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  function stopCamera() {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-  }, []);
+  }
 
-  const startCamera = useCallback(async () => {
-    stopCamera();
+  async function startCamera() {
     setCameraError('');
-    setCameraLoading(true);
-
+    stopCamera();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -52,7 +64,6 @@ export default function PhotosPage() {
         },
         audio: false,
       });
-
       const track = stream.getVideoTracks()[0];
       const capabilities = track?.getCapabilities?.();
       if (capabilities?.width?.max && capabilities?.height?.max) {
@@ -63,7 +74,6 @@ export default function PhotosPage() {
           });
         } catch {}
       }
-
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -71,185 +81,122 @@ export default function PhotosPage() {
       }
     } catch (error) {
       console.error(error);
-      setCameraError('Camera access is needed to take photos. Please allow camera access in your browser settings.');
-    } finally {
-      setCameraLoading(false);
+      setCameraError('Camera access is needed to take photos here. Please allow camera access in your browser settings.');
     }
-  }, [facingMode, stopCamera]);
+  }
 
-  useEffect(() => {
-    fetch('/api/session', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.guest) {
-          setGuest(data.guest);
-          if (data.guest.photosUsed >= data.guest.photoLimit) setStage('exhausted');
-        }
-      })
-      .catch(() => {})
-      .finally(() => setAuthLoading(false));
-  }, []);
-
-  useEffect(() => {
-    if (!guest || stage !== 'camera' || guest.photosUsed >= guest.photoLimit) return;
-    startCamera();
-    return stopCamera;
-  }, [guest, stage, facingMode, startCamera, stopCamera]);
-
-  useEffect(() => () => {
-    stopCamera();
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-  }, [previewUrl, stopCamera]);
-
-  async function handleStart(event) {
+  async function handleAuth(event) {
     event.preventDefault();
-    const cleanName = name.trim();
-    if (!cleanName) return;
     setAuthError('');
-
     try {
-      const response = await fetch('/api/session', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: cleanName }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Could not start your camera.');
+      const data = await api({ action: authMode, username });
       setGuest(data.guest);
-      setName('');
-      setStage(data.guest.photosUsed >= data.guest.photoLimit ? 'exhausted' : 'camera');
+      setUsername('');
+      setStage(data.guest.photosLeft > 0 ? 'camera' : 'exhausted');
     } catch (error) {
       setAuthError(error.message);
     }
   }
 
-  async function mirrorBlob(blob) {
-    const bitmap = await createImageBitmap(blob);
-    const canvas = canvasRef.current;
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    const ctx = canvas.getContext('2d', { alpha: false });
-    ctx.setTransform(-1, 0, 0, 1, canvas.width, 0);
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    bitmap.close?.();
-    return blobFromCanvas(canvas, 'image/jpeg', 1);
+  async function logout() {
+    await api({ action: 'logout' }).catch(() => {});
+    stopCamera();
+    setGuest(null);
+    setAuthMode('login');
+    setStage('camera');
+    setCaption('');
   }
 
-  async function capturePhoto() {
-    const track = streamRef.current?.getVideoTracks?.()[0];
-    let blob = null;
+  function capturePhoto() {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || !video.videoWidth || !video.videoHeight) return;
 
-    if (track && typeof window !== 'undefined' && 'ImageCapture' in window) {
-      try {
-        const capture = new window.ImageCapture(track);
-        blob = await capture.takePhoto();
-      } catch {}
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (facingMode === 'user') {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
     }
-
-    if (!blob) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (!video || !canvas || !video.videoWidth || !video.videoHeight) return;
-
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d', { alpha: false });
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-
-      if (facingMode === 'user') {
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-      }
-
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      blob = await blobFromCanvas(canvas, 'image/jpeg', 1);
-    } else if (facingMode === 'user') {
-      blob = await mirrorBlob(blob);
-    }
-
-    if (!blob) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     stopCamera();
 
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    const url = URL.createObjectURL(blob);
-    setPhotoBlob(blob);
-    setPreviewUrl(url);
-    setCaption('');
-    setStage('preview');
+    canvas.toBlob(blob => {
+      if (!blob) return;
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      const url = URL.createObjectURL(blob);
+      setCapturedBlob(blob);
+      setPreviewUrl(url);
+      setStage('preview');
+    }, 'image/jpeg', 1);
   }
 
   function retake() {
-    if (retakeUsed) return;
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl('');
-    setPhotoBlob(null);
+    setCapturedBlob(null);
     setCaption('');
     setSendError('');
-    setRetakeUsed(true);
     setStage('camera');
   }
 
-  async function savePhoto() {
-    if (!photoBlob || isSaving) return;
-    setIsSaving(true);
+  async function uploadInChunks(uploadUrl, blob) {
+    let driveFile = null;
+    for (let start = 0; start < blob.size; start += CHUNK_SIZE) {
+      const endExclusive = Math.min(start + CHUNK_SIZE, blob.size);
+      const chunk = blob.slice(start, endExclusive);
+      const response = await fetch('/api/upload-chunk', {
+        method: 'PUT',
+        headers: {
+          'x-upload-url': uploadUrl,
+          'content-range': `bytes ${start}-${endExclusive - 1}/${blob.size}`,
+          'content-type': blob.type || 'image/jpeg',
+        },
+        body: chunk,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Upload failed (${response.status})`);
+      if (data.done) driveFile = data.file;
+    }
+    if (!driveFile?.id) throw new Error('Google Drive did not confirm the uploaded file.');
+    return driveFile;
+  }
+
+  async function sendPhoto() {
+    if (!capturedBlob) return;
     setSendError('');
     setStage('sending');
-
     try {
-      const initResponse = await fetch('/api/photos/init', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          mimeType: photoBlob.type || 'image/jpeg',
-          size: photoBlob.size,
-          caption: caption.trim() || null,
-          retakeCount: retakeUsed ? 1 : 0,
-        }),
+      const started = await api({
+        action: 'startUpload',
+        caption,
+        mimeType: capturedBlob.type || 'image/jpeg',
+        fileSize: capturedBlob.size,
       });
-      const init = await initResponse.json();
-      if (!initResponse.ok) throw new Error(init.error || 'Could not prepare upload.');
-
-      const driveResponse = await fetch(init.uploadUrl, {
-        method: 'PUT',
-        headers: { 'content-type': photoBlob.type || 'image/jpeg' },
-        body: photoBlob,
+      const driveFile = await uploadInChunks(started.uploadUrl, capturedBlob);
+      const finalized = await api({
+        action: 'finalizeUpload',
+        photoId: started.photoId,
+        driveFileId: driveFile.id,
       });
-      if (!driveResponse.ok) throw new Error('The photo could not be uploaded to the party drive.');
-      const driveFile = await driveResponse.json();
-
-      const completeResponse = await fetch('/api/photos/complete', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ photoId: init.photoId, driveFileId: driveFile.id }),
-      });
-      const complete = await completeResponse.json();
-      if (!completeResponse.ok) throw new Error(complete.error || 'Could not finish saving the photo.');
-
-      setGuest(complete.guest);
-      setStage(complete.guest.photosUsed >= complete.guest.photoLimit ? 'exhausted' : 'success');
+      setGuest(finalized.guest);
+      setStage(finalized.guest.photosLeft > 0 ? 'success' : 'exhausted');
     } catch (error) {
-      console.error(error);
-      setSendError(error.message || 'Could not save photo. Please try again.');
+      setSendError(error.message);
       setStage('caption');
-    } finally {
-      setIsSaving(false);
     }
   }
 
   function anotherPhoto() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl('');
-    setPhotoBlob(null);
+    setCapturedBlob(null);
     setCaption('');
-    setRetakeUsed(false);
     setSendError('');
     setStage('camera');
-  }
-
-  if (authLoading) {
-    return <main className="page"><section className="centerStage"><p className="eyebrow">A&amp;L</p><p className="script">one second...</p></section></main>;
   }
 
   if (!guest) {
@@ -258,24 +205,32 @@ export default function PhotosPage() {
         <section className="centerStage">
           <div className="authWrap">
             <p className="eyebrow">Disposable camera</p>
-            <h1 className="authTitle">Help us remember the night.</h1>
-            <p className="muted">You get 15 shots, one retake for each, and an optional little note.</p>
+            <h1 className="authTitle">{authMode === 'login' ? 'Welcome back.' : 'Join the roll.'}</h1>
+            <p className="muted">{authMode === 'login' ? 'Enter the name you registered with.' : 'Choose a unique name for the night.'}</p>
 
-            <form className="authForm" onSubmit={handleStart}>
-              <label className="fieldLabel" htmlFor="guest-name">Your name</label>
+            <form className="authForm" onSubmit={handleAuth}>
+              <label className="fieldLabel" htmlFor="username">Your name</label>
               <input
-                id="guest-name"
+                id="username"
                 className="textInput"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="name"
-                maxLength={60}
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                autoComplete="off"
+                inputMode="text"
+                maxLength={30}
                 required
               />
-              <button className="primaryBtn fullBtn" type="submit">Start my camera</button>
+              <button className="primaryBtn fullBtn" type="submit">{authMode === 'login' ? 'Log in' : 'Register'}</button>
             </form>
 
             {authError && <p className="errorText">{authError}</p>}
+
+            <p className="authSwitch muted">
+              {authMode === 'login' ? "Haven't registered yet? " : 'Already registered? '}
+              <button className="textBtn" type="button" onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError(''); }}>
+                {authMode === 'login' ? 'Register' : 'Log in'}
+              </button>
+            </p>
             <Link className="textBtn small" href="/">← Back to party home</Link>
           </div>
         </section>
@@ -283,17 +238,16 @@ export default function PhotosPage() {
     );
   }
 
-  const photosLeft = Math.max(0, guest.photoLimit - guest.photosUsed);
-
-  if (stage === 'exhausted' || photosLeft <= 0) {
+  if (stage === 'exhausted' || guest.photosLeft <= 0) {
     return (
       <main className="page">
         <section className="exhaustedStage">
           <p className="successMark">♡</p>
-          <p className="eyebrow">{guest.photoLimit} / {guest.photoLimit}</p>
+          <p className="eyebrow">15 / 15</p>
           <h1>That's your roll.</h1>
-          <p className="muted">{guest.photoLimit} moments captured. Thanks for helping us remember the night.</p>
+          <p className="muted">15 moments captured. Thanks for helping us remember the night.</p>
           <Link className="secondaryBtn fullBtn" href="/">Back to party home</Link>
+          <button className="textBtn small" type="button" onClick={logout}>Not {guest.username}? Log out</button>
         </section>
       </main>
     );
@@ -318,8 +272,8 @@ export default function PhotosPage() {
           <p className="successMark">♡</p>
           <p className="eyebrow">Sent</p>
           <h1>One for the memories.</h1>
-          <p className="muted">Your photo is safely in the party collection.</p>
-          <p className="successCounter"><strong>{photosLeft} / {guest.photoLimit}</strong><br /><span className="eyebrow">shots left</span></p>
+          <p className="muted">Your photo has been sent.</p>
+          <p className="successCounter"><strong>{guest.photosLeft} / {guest.photoLimit}</strong><br /><span className="eyebrow">shots left</span></p>
           <p className="inspiration">feeling inspired?</p>
           <button className="primaryBtn fullBtn" type="button" onClick={anotherPhoto}>Take another</button>
           <Link className="textBtn small" href="/">Back to party home</Link>
@@ -338,15 +292,15 @@ export default function PhotosPage() {
           <textarea
             className="captionInput"
             value={caption}
-            onChange={(e) => setCaption(e.target.value.slice(0, 220))}
+            onChange={e => setCaption(e.target.value.slice(0, 200))}
             placeholder="A note, an inside joke, anything."
-            maxLength={220}
+            maxLength={200}
           />
-          <div className="captionCount">{caption.length}/220</div>
+          <div className="captionCount">{caption.length}/200</div>
           {sendError && <p className="errorText">{sendError}</p>}
           <div className="captionActions">
             <button className="secondaryBtn" type="button" onClick={() => setStage('preview')}>Back</button>
-            <button className="primaryBtn" type="button" onClick={savePhoto} disabled={isSaving}>{isSaving ? 'Saving…' : 'Send photo'}</button>
+            <button className="primaryBtn" type="button" onClick={sendPhoto}>Send photo</button>
           </div>
         </section>
       </main>
@@ -358,18 +312,16 @@ export default function PhotosPage() {
       <main className="page">
         <section className="cameraShell">
           <div className="cameraTop">
-            <div className="counter"><strong>{photosLeft} / {guest.photoLimit}</strong><span>shots left</span></div>
+            <div className="counter"><strong>{guest.photosLeft} / {guest.photoLimit}</strong><span>shots left</span></div>
           </div>
           <div className="cameraViewport">
-            <div className="cameraFrame">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={previewUrl} alt="Your captured photo preview" />
-            </div>
+            <div className="cameraFrame"><img src={previewUrl} alt="Your captured photo preview" /></div>
           </div>
           <div className="previewActions">
-            <button className="secondaryBtn" type="button" onClick={retake} disabled={retakeUsed}>{retakeUsed ? 'Retake used' : 'Retake'}</button>
+            <button className="secondaryBtn" type="button" onClick={retake}>Retake</button>
             <button className="primaryBtn" type="button" onClick={() => setStage('caption')}>Keep photo</button>
           </div>
+          <p className="muted small" style={{ textAlign: 'center', margin: '0 0 8px' }}>Retake as many times as you want. Only the photo you keep counts.</p>
         </section>
       </main>
     );
@@ -379,7 +331,7 @@ export default function PhotosPage() {
     <main className="page">
       <section className="cameraShell">
         <div className="cameraTop">
-          <div className="counter"><strong>{photosLeft} / {guest.photoLimit}</strong><span>shots left</span></div>
+          <div className="counter"><strong>{guest.photosLeft} / {guest.photoLimit}</strong><span>shots left</span></div>
         </div>
 
         <div className="cameraViewport">
@@ -391,7 +343,6 @@ export default function PhotosPage() {
               muted
               style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
             />
-            {cameraLoading && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#fff8ee', fontSize: 13 }}>opening camera…</div>}
             <canvas ref={canvasRef} hidden />
           </div>
         </div>
@@ -400,11 +351,11 @@ export default function PhotosPage() {
 
         <div className="cameraControls">
           <Link className="controlBtn" href="/">← Back</Link>
-          <button className="shutterBtn" type="button" aria-label="Take photo" onClick={capturePhoto} disabled={cameraLoading || !!cameraError} />
-          <button className="controlBtn" type="button" onClick={() => setFacingMode((mode) => mode === 'environment' ? 'user' : 'environment')}>↻ Switch</button>
+          <button className="shutterBtn" type="button" aria-label="Take photo" onClick={capturePhoto} />
+          <button className="controlBtn" type="button" onClick={() => setFacingMode(mode => mode === 'environment' ? 'user' : 'environment')}>↻ Switch</button>
         </div>
 
-        {retakeUsed && <p className="muted small" style={{ textAlign: 'center', margin: 0 }}>retake used for this shot</p>}
+        <button className="textBtn small" type="button" onClick={logout}>Not {guest.username}? Log out</button>
       </section>
     </main>
   );
