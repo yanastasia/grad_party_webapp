@@ -281,7 +281,6 @@ export default function PhotosPage() {
           <div className="sendingStage">
             <div className="developing">still processing...</div>
             <div className="developDot" aria-hidden="true" />
-            <p className="muted" style={{ textAlign: 'center', marginTop: 18 }}>Sending the evidence somewhere safe.</p>
           </div>
         </section>
       </main>
@@ -294,11 +293,8 @@ export default function PhotosPage() {
         <section className="centerStage">
           <div className="successStage">
             <p className="successMark">♡</p>
-            <p className="eyebrow">Proof of attendance</p>
-            <h1>One for the archives.</h1>
-            <p className="muted">Saved. No context required, but appreciated.</p>
+            <h1>Saved.</h1>
             <p className="successCounter"><strong>{guest.photosLeft} / {guest.photoLimit}</strong><br /><span className="eyebrow">shots left</span></p>
-            <p className="inspiration">one more for the plot?</p>
             <button className="primaryBtn fullBtn" type="button" onClick={anotherPhoto}>Take another</button>
             <Link className="textBtn small" href="/">Back to party home</Link>
           </div>
