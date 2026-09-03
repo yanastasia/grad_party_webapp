@@ -279,7 +279,7 @@ export default function PhotosPage() {
       <main className="page partyPage">
         <section className="centerStage">
           <div className="sendingStage">
-            <div className="developing">still processing...</div>
+            <div className="developing">sending...</div>
             <div className="developDot" aria-hidden="true" />
           </div>
         </section>
