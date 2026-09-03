@@ -19,8 +19,7 @@ export default function HomePage() {
 
       <section className="homeHero vintageCard">
         <p className="eyebrow">Anastasia &amp; Leona · 05.09.26</p>
-        <h1 className="display">Join the <span className="script displayScript">party</span></h1>
-        <p className="script homePrompt">Pick your side quest.</p>
+        <h1 className="script homePrompt" style={{ margin: '14px 0 0', fontSize: 'clamp(42px, 10vw, 68px)', lineHeight: 1.02, textAlign: 'left', transform: 'rotate(-1deg)' }}>Pick your side quest.</h1>
       </section>
 
       <section className="activityList" aria-label="Party activities">
