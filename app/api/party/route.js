@@ -117,6 +117,16 @@ function guestPayload(guest) {
   };
 }
 
+function partyTimeStamp(date = new Date()) {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Skopje',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(date).replace(/:/g, '-');
+}
+
 export async function GET(request) {
   try {
     const guest = await getGuestFromRequest(request);
@@ -222,8 +232,7 @@ export async function POST(request) {
 
       const shotNumber = guest.photos_used + 1;
       const photoId = crypto.randomUUID();
-      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `${String(shotNumber).padStart(2, '0')}_${stamp}_${photoId.slice(0, 6)}.jpg`;
+      const filename = `${guest.username}_${partyTimeStamp()}.jpg`;
 
       await sql`
         insert into photos (id, guest_id, shot_number, caption, original_filename, mime_type, file_size_bytes, processing_status)
