@@ -348,7 +348,6 @@ export default function PhotosPage() {
             <button className="secondaryBtn" type="button" onClick={retake}>Retake</button>
             <button className="primaryBtn" type="button" onClick={() => setStage('caption')}>Keep this one</button>
           </div>
-          <p className="muted small" style={{ textAlign: 'center', margin: '0 0 8px' }}>Retake until it earns a place on the roll. Only the one you keep counts.</p>
         </section>
       </main>
     );
