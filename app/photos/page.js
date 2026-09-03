@@ -224,7 +224,7 @@ export default function PhotosPage() {
           <div className="authWrap">
             <p className="eyebrow">Disposable camera · 15 shots</p>
             <h1 className="authTitle">{authMode === 'login' ? 'Back for more?' : 'Join the roll.'}</h1>
-            <p className="muted">{authMode === 'login' ? 'Enter the name you registered with.' : 'Pick a name or alias. Mostly for credit. Slightly for accountability.'}</p>
+            {authMode === 'register' && <p className="muted">Pick a name or alias. Mostly for credit. Slightly for accountability.</p>}
 
             <form className="authForm" onSubmit={handleAuth}>
               <label className="fieldLabel" htmlFor="username">Who’s behind the camera?</label>
