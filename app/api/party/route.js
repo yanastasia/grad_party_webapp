@@ -1,7 +1,8 @@
 import { NextResponse, after } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import crypto from 'crypto';
-import { addCaptionToPhoto, processPartyPhoto } from '../../../lib/photo-processing';
+import { processPartyPhoto } from '../../../lib/photo-processing';
+import { createCaptionedPolaroid } from '../../../lib/polaroid-caption';
 
 const sql = neon(process.env.DATABASE_URL);
 const COOKIE_NAME = 'al_party_session';
@@ -164,9 +165,9 @@ async function createDerivedCopies({ driveFileId, processedFolderId, captionedFo
       buffer: processed.buffer,
     });
 
-    const cleanCaption = String(caption || '').trim();
+    const cleanCaption = String(caption || '').trim().slice(0, 200);
     if (cleanCaption && captionedFolderId) {
-      const captionedBuffer = await addCaptionToPhoto(processed.buffer, cleanCaption);
+      const captionedBuffer = await createCaptionedPolaroid(processed.buffer, cleanCaption);
       if (captionedBuffer) {
         await uploadJpegToDrive({
           accessToken,
@@ -177,7 +178,7 @@ async function createDerivedCopies({ driveFileId, processedFolderId, captionedFo
       }
     }
 
-    console.log(`Processed ${filename} with ${processed.preset} preset (luminance ${processed.luminance}). Captioned copy: ${cleanCaption ? 'yes' : 'no'}.`);
+    console.log(`Processed ${filename} with ${processed.preset} preset (luminance ${processed.luminance}). Captioned polaroid: ${cleanCaption ? 'yes' : 'no'}.`);
   } catch (processingError) {
     console.error('Automatic derived-copy generation failed:', processingError);
   }
