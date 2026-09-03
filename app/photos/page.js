@@ -33,6 +33,7 @@ export default function PhotosPage() {
   const [stage, setStage] = useState('camera');
   const [caption, setCaption] = useState('');
   const [sendError, setSendError] = useState('');
+  const [retakeUsed, setRetakeUsed] = useState(false);
 
   useEffect(() => {
     if (!guest || stage !== 'camera' || guest.photosLeft <= 0) return;
@@ -81,7 +82,7 @@ export default function PhotosPage() {
       }
     } catch (error) {
       console.error(error);
-      setCameraError('Camera access is needed to take photos here. Please allow camera access in your browser settings.');
+      setCameraError('Camera access is needed for your honorary photographer duties. Please allow it in your browser settings.');
     }
   }
 
@@ -92,6 +93,7 @@ export default function PhotosPage() {
       const data = await api({ action: authMode, username });
       setGuest(data.guest);
       setUsername('');
+      setRetakeUsed(false);
       setStage(data.guest.photosLeft > 0 ? 'camera' : 'exhausted');
     } catch (error) {
       setAuthError(error.message);
@@ -105,6 +107,7 @@ export default function PhotosPage() {
     setAuthMode('login');
     setStage('camera');
     setCaption('');
+    setRetakeUsed(false);
   }
 
   function capturePhoto() {
@@ -135,11 +138,13 @@ export default function PhotosPage() {
   }
 
   function retake() {
+    if (retakeUsed) return;
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl('');
     setCapturedBlob(null);
     setCaption('');
     setSendError('');
+    setRetakeUsed(true);
     setStage('camera');
   }
 
@@ -196,20 +201,23 @@ export default function PhotosPage() {
     setCapturedBlob(null);
     setCaption('');
     setSendError('');
+    setRetakeUsed(false);
     setStage('camera');
   }
 
   if (!guest) {
     return (
-      <main className="page">
+      <main className="page partyPage">
+        <div className="doodle doodleFlowers" aria-hidden="true" />
+        <div className="scribble scribbleOne" aria-hidden="true" />
         <section className="centerStage">
           <div className="authWrap">
-            <p className="eyebrow">Disposable camera</p>
-            <h1 className="authTitle">{authMode === 'login' ? 'Welcome back.' : 'Join the roll.'}</h1>
-            <p className="muted">{authMode === 'login' ? 'Enter the name you registered with.' : 'Choose a unique name for the night.'}</p>
+            <p className="eyebrow">Disposable camera · 15 shots</p>
+            <h1 className="authTitle">{authMode === 'login' ? 'Back for more?' : 'Join the roll.'}</h1>
+            <p className="muted">{authMode === 'login' ? 'Enter the name you registered with.' : 'Pick a name or alias. Mostly for credit. Slightly for accountability.'}</p>
 
             <form className="authForm" onSubmit={handleAuth}>
-              <label className="fieldLabel" htmlFor="username">Your name</label>
+              <label className="fieldLabel" htmlFor="username">Who’s behind the camera?</label>
               <input
                 id="username"
                 className="textInput"
@@ -220,13 +228,13 @@ export default function PhotosPage() {
                 maxLength={30}
                 required
               />
-              <button className="primaryBtn fullBtn" type="submit">{authMode === 'login' ? 'Log in' : 'Register'}</button>
+              <button className="primaryBtn fullBtn" type="submit">{authMode === 'login' ? 'Continue' : 'Start my roll'}</button>
             </form>
 
             {authError && <p className="errorText">{authError}</p>}
 
             <p className="authSwitch muted">
-              {authMode === 'login' ? "Haven't registered yet? " : 'Already registered? '}
+              {authMode === 'login' ? "First time here? " : 'Already joined? '}
               <button className="textBtn" type="button" onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError(''); }}>
                 {authMode === 'login' ? 'Register' : 'Log in'}
               </button>
@@ -240,14 +248,17 @@ export default function PhotosPage() {
 
   if (stage === 'exhausted' || guest.photosLeft <= 0) {
     return (
-      <main className="page">
-        <section className="exhaustedStage">
-          <p className="successMark">♡</p>
-          <p className="eyebrow">15 / 15</p>
-          <h1>That's your roll.</h1>
-          <p className="muted">15 moments captured. Thanks for helping us remember the night.</p>
-          <Link className="secondaryBtn fullBtn" href="/">Back to party home</Link>
-          <button className="textBtn small" type="button" onClick={logout}>Not {guest.username}? Log out</button>
+      <main className="page partyPage">
+        <section className="centerStage">
+          <div className="exhaustedStage">
+            <p className="successMark">♡</p>
+            <p className="eyebrow">15 / 15 · final boss defeated</p>
+            <h1>Your roll is finished.</h1>
+            <p className="muted">Camera duties completed. May at least half of these be iconic.</p>
+            <p className="script">thank you for your service</p>
+            <Link className="secondaryBtn fullBtn" href="/">Back to the party</Link>
+            <button className="textBtn small" type="button" onClick={logout}>Not {guest.username}? Log out</button>
+          </div>
         </section>
       </main>
     );
@@ -255,11 +266,13 @@ export default function PhotosPage() {
 
   if (stage === 'sending') {
     return (
-      <main className="page">
-        <section className="sendingStage">
-          <div className="developing">developing...</div>
-          <div className="developDot" aria-hidden="true" />
-          <p className="muted" style={{ textAlign: 'center', marginTop: 18 }}>Sending your photo.</p>
+      <main className="page partyPage">
+        <section className="centerStage">
+          <div className="sendingStage">
+            <div className="developing">still processing...</div>
+            <div className="developDot" aria-hidden="true" />
+            <p className="muted" style={{ textAlign: 'center', marginTop: 18 }}>Sending the evidence somewhere safe.</p>
+          </div>
         </section>
       </main>
     );
@@ -267,16 +280,18 @@ export default function PhotosPage() {
 
   if (stage === 'success') {
     return (
-      <main className="page">
-        <section className="successStage">
-          <p className="successMark">♡</p>
-          <p className="eyebrow">Sent</p>
-          <h1>One for the memories.</h1>
-          <p className="muted">Your photo has been sent.</p>
-          <p className="successCounter"><strong>{guest.photosLeft} / {guest.photoLimit}</strong><br /><span className="eyebrow">shots left</span></p>
-          <p className="inspiration">feeling inspired?</p>
-          <button className="primaryBtn fullBtn" type="button" onClick={anotherPhoto}>Take another</button>
-          <Link className="textBtn small" href="/">Back to party home</Link>
+      <main className="page partyPage">
+        <section className="centerStage">
+          <div className="successStage">
+            <p className="successMark">♡</p>
+            <p className="eyebrow">Proof of attendance</p>
+            <h1>One for the archives.</h1>
+            <p className="muted">Saved. No context required, but appreciated.</p>
+            <p className="successCounter"><strong>{guest.photosLeft} / {guest.photoLimit}</strong><br /><span className="eyebrow">shots left</span></p>
+            <p className="inspiration">one more for the plot?</p>
+            <button className="primaryBtn fullBtn" type="button" onClick={anotherPhoto}>Take another</button>
+            <Link className="textBtn small" href="/">Back to party home</Link>
+          </div>
         </section>
       </main>
     );
@@ -284,23 +299,25 @@ export default function PhotosPage() {
 
   if (stage === 'caption') {
     return (
-      <main className="page">
-        <section className="captionStage">
-          <p className="script">say something...</p>
-          <h1>Add something to this one.</h1>
-          <p className="eyebrow">Optional</p>
-          <textarea
-            className="captionInput"
-            value={caption}
-            onChange={e => setCaption(e.target.value.slice(0, 200))}
-            placeholder="A note, an inside joke, anything."
-            maxLength={200}
-          />
-          <div className="captionCount">{caption.length}/200</div>
-          {sendError && <p className="errorText">{sendError}</p>}
-          <div className="captionActions">
-            <button className="secondaryBtn" type="button" onClick={() => setStage('preview')}>Back</button>
-            <button className="primaryBtn" type="button" onClick={sendPhoto}>Send photo</button>
+      <main className="page partyPage">
+        <section className="centerStage">
+          <div className="captionStage">
+            <p className="script">for the record...</p>
+            <h1>Add a little context.</h1>
+            <p className="eyebrow">Optional, naturally</p>
+            <textarea
+              className="captionInput"
+              value={caption}
+              onChange={e => setCaption(e.target.value.slice(0, 200))}
+              placeholder="A note, an inside joke, a weak alibi..."
+              maxLength={200}
+            />
+            <div className="captionCount">{caption.length}/200</div>
+            {sendError && <p className="errorText">{sendError}</p>}
+            <div className="captionActions">
+              <button className="secondaryBtn" type="button" onClick={() => setStage('preview')}>Back</button>
+              <button className="primaryBtn" type="button" onClick={sendPhoto}>Send it</button>
+            </div>
           </div>
         </section>
       </main>
@@ -309,7 +326,7 @@ export default function PhotosPage() {
 
   if (stage === 'preview') {
     return (
-      <main className="page">
+      <main className="page partyPage">
         <section className="cameraShell">
           <div className="cameraTop">
             <div className="counter"><strong>{guest.photosLeft} / {guest.photoLimit}</strong><span>shots left</span></div>
@@ -318,17 +335,17 @@ export default function PhotosPage() {
             <div className="cameraFrame"><img src={previewUrl} alt="Your captured photo preview" /></div>
           </div>
           <div className="previewActions">
-            <button className="secondaryBtn" type="button" onClick={retake}>Retake</button>
-            <button className="primaryBtn" type="button" onClick={() => setStage('caption')}>Keep photo</button>
+            <button className="secondaryBtn" type="button" onClick={retake} disabled={retakeUsed}>{retakeUsed ? 'Retake used' : 'Retake once'}</button>
+            <button className="primaryBtn" type="button" onClick={() => setStage('caption')}>Keep this one</button>
           </div>
-          <p className="muted small" style={{ textAlign: 'center', margin: '0 0 8px' }}>Retake as many times as you want. Only the photo you keep counts.</p>
+          <p className="muted small" style={{ textAlign: 'center', margin: '0 0 8px' }}>{retakeUsed ? 'That was your mercy shot. This one stays.' : 'One retake per photo. Mercy is limited.'}</p>
         </section>
       </main>
     );
   }
 
   return (
-    <main className="page">
+    <main className="page partyPage">
       <section className="cameraShell">
         <div className="cameraTop">
           <div className="counter"><strong>{guest.photosLeft} / {guest.photoLimit}</strong><span>shots left</span></div>
@@ -350,7 +367,7 @@ export default function PhotosPage() {
         {cameraError && <p className="errorText">{cameraError}</p>}
 
         <div className="cameraControls">
-          <Link className="controlBtn" href="/">← Back</Link>
+          <Link className="controlBtn" href="/">← Party</Link>
           <button className="shutterBtn" type="button" aria-label="Take photo" onClick={capturePhoto} />
           <button className="controlBtn" type="button" onClick={() => setFacingMode(mode => mode === 'environment' ? 'user' : 'environment')}>↻ Switch</button>
         </div>
