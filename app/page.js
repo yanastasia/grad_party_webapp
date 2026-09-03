@@ -17,9 +17,9 @@ export default function HomePage() {
       <div className="scribble scribbleOne" aria-hidden="true" />
       <div className="scribble scribbleTwo" aria-hidden="true" />
 
-      <section className="homeHero vintageCard">
+      <section className="homeHero vintageCard" style={{ paddingTop: '104px' }}>
         <p className="eyebrow">Anastasia &amp; Leona · 05.09.26</p>
-        <h1 className="script homePrompt" style={{ margin: '14px 0 0', fontSize: 'clamp(42px, 10vw, 68px)', lineHeight: 1.02, textAlign: 'left', transform: 'rotate(-1deg)' }}>Pick your side quest.</h1>
+        <h1 className="script homePrompt" style={{ margin: '22px 0 0', fontSize: 'clamp(42px, 10vw, 68px)', lineHeight: 1.02, textAlign: 'left', transform: 'rotate(-1deg)' }}>Pick your side quest.</h1>
       </section>
 
       <section className="activityList" aria-label="Party activities">
