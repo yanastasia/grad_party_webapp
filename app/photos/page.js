@@ -5,6 +5,22 @@ import { useEffect, useRef, useState } from 'react';
 
 const CHUNK_SIZE = 2 * 1024 * 1024;
 
+function ArrowLeftIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flex: '0 0 auto' }}>
+      <path d="M19 12H5M11 6l-6 6 6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SwitchCameraIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flex: '0 0 auto' }}>
+      <path d="M4.5 8.5A8 8 0 0 1 18 5.6L20 8M20 8V3.5M20 8h-4.5M19.5 15.5A8 8 0 0 1 6 18.4L4 16M4 16v4.5M4 16h4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 async function api(body) {
   const response = await fetch('/api/party', {
     method: 'POST',
@@ -233,7 +249,7 @@ export default function PhotosPage() {
                 {authMode === 'login' ? 'Register' : 'Log in'}
               </button>
             </p>
-            <Link className="textBtn small" href="/">← Back to party home</Link>
+            <Link className="textBtn small" href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><ArrowLeftIcon />Back to party home</Link>
           </div>
         </section>
       </main>
@@ -361,9 +377,9 @@ export default function PhotosPage() {
         {cameraError && <p className="errorText">{cameraError}</p>}
 
         <div className="cameraControls">
-          <Link className="controlBtn" href="/">← Party</Link>
+          <Link className="controlBtn" href="/" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}><ArrowLeftIcon />Party</Link>
           <button className="shutterBtn" type="button" aria-label="Take photo" onClick={capturePhoto} />
-          <button className="controlBtn" type="button" onClick={() => setFacingMode(mode => mode === 'environment' ? 'user' : 'environment')}>↻ Switch</button>
+          <button className="controlBtn" type="button" onClick={() => setFacingMode(mode => mode === 'environment' ? 'user' : 'environment')} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}><SwitchCameraIcon />Switch</button>
         </div>
 
         <button className="textBtn small" type="button" onClick={logout}>Not {guest.username}? Log out</button>
