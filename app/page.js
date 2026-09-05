@@ -32,7 +32,7 @@ export default function HomePage() {
           <span className="activityArrow" aria-hidden="true"><ArrowUpRightIcon /></span>
         </Link>
 
-        <a className="activity activityMusic" href="https://dekk.fm/mix?room=a-l-xi" target="_blank" rel="noreferrer">
+        <a className="activity activityMusic" href="https://dekk.fm/mix?room=party-io" target="_blank" rel="noreferrer">
           <span className="activitySketch" aria-hidden="true">♫</span>
           <span>
             <span className="activityTitle">Song Requests</span>
